@@ -3,7 +3,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol, runtime_checkable
-
+from typing import List
 from app.services.util import generate_unique_id
 from abc import ABC, abstractmethod
 import os
@@ -113,5 +113,44 @@ class DeliveryReport:
             f"delivered={self.total_delivered}, "
             f"success_rate={self.success_rate():.2f}, "
             f"report_id={self.report_id})"
+        )
+
+class NotificationService:
+
+    def __init__(self, channel: NotificationChannel):
+        self._channel = channel
+        self._history: List[str] = []
+
+    def send_notification(self, message: str) -> None:
+        if not self._channel.is_available():
+            raise ChannelUnavailableError(
+                f"Channel not available: {self._channel.get_channel_name()}"
+            )
+
+        self._channel.send(message)
+        self._history.append(message)
+
+    def send_bulk(self, messages: List[str]) -> int:
+        success_count = 0
+
+        for msg in messages:
+            try:
+                self.send_notification(msg)
+                success_count += 1
+            except NotificationError:
+                continue
+
+        return success_count
+
+    def get_history(self) -> List[str]:
+        return list(self._history)
+
+    # 🔹 Integración con DeliveryReport
+    def generate_report(self, attempted: List[str]) -> "DeliveryReport":
+        return DeliveryReport(
+            channel_name=self._channel.get_channel_name(),
+            attempted=len(attempted),
+            delivered=len(self._history),
+            delivered_messages=self.get_history()
         )
 
