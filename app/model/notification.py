@@ -1,4 +1,5 @@
 import os
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol, runtime_checkable
@@ -77,3 +78,40 @@ class FileChannel(NotificationChannel):
                 f.write(message + "\n")
         except Exception as e:
             raise DeliveryError(f"Error escribiendo archivo: {e}")
+
+class MockChannel(NotificationChannel):
+
+    def send(self, message: str) -> None:
+        raise ChannelUnavailableError("Mock no disponible")
+
+    def get_channel_name(self) -> str:
+        return "mock"
+
+    def is_available(self) -> bool:
+        return False
+
+@dataclass
+class DeliveryReport:
+    channel_name: str
+    total_attempted: int
+    total_delivered: int
+    messages: list[str] = field(default_factory=list)
+    report_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+    def success_rate(self) -> float:
+        if self.total_attempted == 0:
+            return 0.0
+        return self.total_delivered / self.total_attempted
+
+    def is_empty(self) -> bool:
+        return self.total_delivered == 0
+
+    def __str__(self) -> str:
+        return (
+            f"DeliveryReport(channel={self.channel_name}, "
+            f"attempted={self.total_attempted}, "
+            f"delivered={self.total_delivered}, "
+            f"success_rate={self.success_rate():.2f}, "
+            f"report_id={self.report_id})"
+        )
+
